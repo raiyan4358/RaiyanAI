@@ -21,16 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const formatMessage = (message) => {
-    // Bold Text Parsing
     message = message.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-
-    // List Parsing
-    if (message.match(/^(\d+\.)/)) {
-      message = `<ol>${message.split("\n").map(line => `<li>${line}</li>`).join("")}</ol>`;
-    } else if (message.match(/^-/)) {
-      message = `<ul>${message.split("\n").map(line => `<li>${line}</li>`).join("")}</ul>`;
-    }
-
     return `<p>${message}</p>`;
   };
 
@@ -39,25 +30,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const requestOptions = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
-        contents: [{ 
-          role: "user", 
-          parts: [{ text: userMessage }] 
-        }] 
-      }),
+      body: JSON.stringify({ contents: [{ parts: [{ text: userMessage }] }] }),
     };
 
     try {
       const response = await fetch(API_URL, requestOptions);
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error.message);
-      messageElement.innerHTML = formatMessage(data.candidates[0].content.parts[0].text.replace(/\*\*(.*?)\*\*/g, '$1'));
+      
+      if (!response.ok) throw new Error(data.error?.message || "Unknown API error");
+      
+      messageElement.innerHTML = formatMessage(data.candidates?.[0]?.content?.parts?.[0]?.text || "No response received.");
     } catch (error) {
       messageElement.classList.add("error");
       messageElement.innerHTML = `<strong>Error:</strong> ${error.message}`;
     } finally {
       chatbox.scrollTo(0, chatbox.scrollHeight);
-      saveChatToLocalStorage(); // Save the updated chat
+      saveChatToLocalStorage();
     }
   };
 
@@ -79,33 +67,38 @@ document.addEventListener('DOMContentLoaded', () => {
       generateResponse(incomingChatLi);
     }, 600);
 
-    saveChatToLocalStorage(); // Save the updated chat
+    saveChatToLocalStorage();
   };
 
   const saveChatToLocalStorage = () => {
-    const chatMessages = [];
-    const chatItems = chatbox.querySelectorAll(".chat");
-
-    chatItems.forEach((chatItem) => {
-      const message = chatItem.querySelector("p").innerHTML;
-      const className = chatItem.classList.contains("outgoing") ? "outgoing" : "incoming";
-      chatMessages.push({ message, className });
-    });
-
-    localStorage.setItem("chatMessages", JSON.stringify(chatMessages));
+    try {
+      const chatMessages = [];
+      const chatItems = chatbox.querySelectorAll(".chat");
+      
+      chatItems.forEach((chatItem) => {
+        const message = chatItem.querySelector("p").innerHTML;
+        const className = chatItem.classList.contains("outgoing") ? "outgoing" : "incoming";
+        chatMessages.push({ message, className });
+      });
+      
+      localStorage.setItem("chatMessages", JSON.stringify(chatMessages));
+    } catch (error) {
+      console.error("Error saving chat to local storage:", error);
+    }
   };
 
   const loadChatFromLocalStorage = () => {
-    const savedMessages = JSON.parse(localStorage.getItem("chatMessages"));
-    if (savedMessages) {
+    try {
+      const savedMessages = JSON.parse(localStorage.getItem("chatMessages")) || [];
       savedMessages.forEach(({ message, className }) => {
         chatbox.appendChild(createChatLi(message, className));
       });
       chatbox.scrollTo(0, chatbox.scrollHeight);
+    } catch (error) {
+      console.error("Error loading chat messages:", error);
     }
   };
 
-  // Load the saved chat when the page is loaded
   loadChatFromLocalStorage();
 
   chatInput.addEventListener("input", () => {
