@@ -8,8 +8,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let userMessage = null;
   const inputInitHeight = chatInput.scrollHeight;
 
-  const API_KEY = "AIzaSyBLZmAT1IiS8ZezYCKMYW3MoV8xZkSZAfk"; 
-  const API_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${API_KEY}`;
+  const API_KEY = "AIzaSyBLZmAT1IiS8ZezYCKMYW3MoV8xZkSZAfk"; // Replace with your actual API key
+  const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`;
 
   const createChatLi = (message, className) => {
     const chatLi = document.createElement("li");
@@ -21,7 +21,16 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const formatMessage = (message) => {
+    // Bold Text Parsing
     message = message.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+    // List Parsing
+    if (message.match(/^(\d+\.)/)) {
+      message = `<ol>${message.split("\n").map(line => `<li>${line}</li>`).join("")}</ol>`;
+    } else if (message.match(/^-/)) {
+      message = `<ul>${message.split("\n").map(line => `<li>${line}</li>`).join("")}</ul>`;
+    }
+
     return `<p>${message}</p>`;
   };
 
@@ -30,22 +39,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const requestOptions = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contents: [{ parts: [{ text: userMessage }] }] }),
+      body: JSON.stringify({ 
+        contents: [{ role: "user", parts: [{ text: userMessage }] }]
+      }),
     };
 
     try {
       const response = await fetch(API_URL, requestOptions);
       const data = await response.json();
-      
-      if (!response.ok) throw new Error(data.error?.message || "Unknown API error");
-      
-      messageElement.innerHTML = formatMessage(data.candidates?.[0]?.content?.parts?.[0]?.text || "No response received.");
+
+      if (!response.ok) throw new Error(data.error?.message || "API request failed");
+
+      // Extract response from Gemini API
+      const botMessage = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response";
+      messageElement.innerHTML = formatMessage(botMessage);
     } catch (error) {
       messageElement.classList.add("error");
       messageElement.innerHTML = `<strong>Error:</strong> ${error.message}`;
     } finally {
       chatbox.scrollTo(0, chatbox.scrollHeight);
-      saveChatToLocalStorage();
+      saveChatToLocalStorage(); // Save chat history
     }
   };
 
@@ -67,38 +80,33 @@ document.addEventListener('DOMContentLoaded', () => {
       generateResponse(incomingChatLi);
     }, 600);
 
-    saveChatToLocalStorage();
+    saveChatToLocalStorage(); // Save chat history
   };
 
   const saveChatToLocalStorage = () => {
-    try {
-      const chatMessages = [];
-      const chatItems = chatbox.querySelectorAll(".chat");
-      
-      chatItems.forEach((chatItem) => {
-        const message = chatItem.querySelector("p").innerHTML;
-        const className = chatItem.classList.contains("outgoing") ? "outgoing" : "incoming";
-        chatMessages.push({ message, className });
-      });
-      
-      localStorage.setItem("chatMessages", JSON.stringify(chatMessages));
-    } catch (error) {
-      console.error("Error saving chat to local storage:", error);
-    }
+    const chatMessages = [];
+    const chatItems = chatbox.querySelectorAll(".chat");
+
+    chatItems.forEach((chatItem) => {
+      const message = chatItem.querySelector("p").innerHTML;
+      const className = chatItem.classList.contains("outgoing") ? "outgoing" : "incoming";
+      chatMessages.push({ message, className });
+    });
+
+    localStorage.setItem("chatMessages", JSON.stringify(chatMessages));
   };
 
   const loadChatFromLocalStorage = () => {
-    try {
-      const savedMessages = JSON.parse(localStorage.getItem("chatMessages")) || [];
+    const savedMessages = JSON.parse(localStorage.getItem("chatMessages"));
+    if (savedMessages) {
       savedMessages.forEach(({ message, className }) => {
         chatbox.appendChild(createChatLi(message, className));
       });
       chatbox.scrollTo(0, chatbox.scrollHeight);
-    } catch (error) {
-      console.error("Error loading chat messages:", error);
     }
   };
 
+  // Load chat history on page load
   loadChatFromLocalStorage();
 
   chatInput.addEventListener("input", () => {
