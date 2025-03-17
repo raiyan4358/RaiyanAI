@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let userMessage = null;
   const inputInitHeight = chatInput.scrollHeight;
 
-  const API_KEY = "AIzaSyA3HCtoCK17zMOkWzXjoOUEiGjyBrl0UkE"; 
+  const API_KEY = "AIzaSyBLZmAT1IiS8ZezYCKMYW3MoV8xZkSZAfk"; 
   const API_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${API_KEY}`;
 
   const createChatLi = (message, className) => {
